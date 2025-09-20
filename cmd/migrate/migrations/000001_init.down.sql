@@ -1,0 +1,29 @@
+-- +migrate Down
+-- Tear down statements
+DROP MATERIALIZED VIEW IF EXISTS mv_top_events;
+DROP TABLE IF EXISTS kv_store;
+DROP TABLE IF EXISTS analytics_aggregates;
+DROP TABLE IF EXISTS booking_audit;
+DROP TABLE IF EXISTS seats_p0;
+DROP TABLE IF EXISTS seats_p1;
+DROP TABLE IF EXISTS seats_p2;
+DROP TABLE IF EXISTS seats_p3;
+DROP TABLE IF EXISTS seats;
+DROP TABLE IF EXISTS waitlist_p0;
+DROP TABLE IF EXISTS waitlist_p1;
+DROP TABLE IF EXISTS waitlist_p2;
+DROP TABLE IF EXISTS waitlist_p3;
+DROP TABLE IF EXISTS waitlist;
+DROP TABLE IF EXISTS bookings_p0;
+DROP TABLE IF EXISTS bookings_p1;
+DROP TABLE IF EXISTS bookings_p2;
+DROP TABLE IF EXISTS bookings_p3;
+DROP TABLE IF EXISTS bookings;
+DROP TABLE IF EXISTS event_capacity_p0;
+DROP TABLE IF EXISTS event_capacity_p1;
+DROP TABLE IF EXISTS event_capacity_p2;
+DROP TABLE IF EXISTS event_capacity_p3;
+DROP TABLE IF EXISTS event_capacity;
+DROP TABLE IF EXISTS event_likes;
+DROP TABLE IF EXISTS events;
+DROP TABLE IF EXISTS users;
