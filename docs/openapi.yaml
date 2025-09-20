@@ -1,0 +1,742 @@
+openapi: 3.1.0
+info:
+  title: Evently API
+  description: A scalable event booking platform with concurrency-safe ticketing, waitlists, payments, and admin analytics
+  version: 1.0.0
+servers:
+  - url: http://localhost:8080
+    description: Development server
+
+paths:
+  ####################################
+  # Events
+  ####################################
+  /v1/events:
+    get:
+      summary: List events
+      parameters:
+        - in: query
+          name: limit
+          schema: { type: integer, default: 20 }
+        - in: query
+          name: offset
+          schema: { type: integer, default: 0 }
+        - in: query
+          name: q
+          schema: { type: string }
+        - in: query
+          name: from
+          schema: { type: string, format: date-time }
+        - in: query
+          name: to
+          schema: { type: string, format: date-time }
+      responses:
+        "200":
+          description: List of events
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  events:
+                    type: array
+                    items: { $ref: "#/components/schemas/Event" }
+                  limit: { type: integer }
+                  offset: { type: integer }
+
+  /v1/events/all:
+    get:
+      summary: List all events ongoing or upcoming
+      parameters:
+        - in: query
+          name: limit
+          schema: { type: integer, default: 20 }
+        - in: query
+          name: offset
+          schema: { type: integer, default: 0 }
+      responses:
+        "200":
+          description: Events
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  events:
+                    type: array
+                    items: { $ref: "#/components/schemas/Event" }
+                  limit: { type: integer }
+                  offset: { type: integer }
+
+  /v1/events/upcoming:
+    get:
+      summary: List upcoming events
+      parameters:
+        - in: query
+          name: limit
+          schema: { type: integer, default: 20 }
+        - in: query
+          name: offset
+          schema: { type: integer, default: 0 }
+      responses:
+        "200":
+          description: Upcoming events
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  events:
+                    type: array
+                    items: { $ref: "#/components/schemas/Event" }
+                  limit: { type: integer }
+                  offset: { type: integer }
+
+  /v1/events/popular:
+    get:
+      summary: List popular events
+      parameters:
+        - in: query
+          name: limit
+          schema: { type: integer, default: 20 }
+        - in: query
+          name: offset
+          schema: { type: integer, default: 0 }
+      responses:
+        "200":
+          description: Popular events
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  events:
+                    type: array
+                    items: { $ref: "#/components/schemas/Event" }
+                  limit: { type: integer }
+                  offset: { type: integer }
+
+  /v1/events/{id}:
+    get:
+      summary: Get event details
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Event
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  event: { $ref: "#/components/schemas/Event" }
+                  tokens_remaining: { type: integer }
+
+  /v1/events/{id}/seats:
+    get:
+      summary: Get available seats for event
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Available seats
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  seats: { type: integer }
+
+  /v1/events/{id}/like:
+    post:
+      summary: Like an event
+      security: [ { bearerAuth: [] } ]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Success
+    delete:
+      summary: Unlike an event
+      security: [ { bearerAuth: [] } ]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Success
+
+  ####################################
+  # Bookings
+  ####################################
+  /v1/bookings/{id}/book:
+    post:
+      summary: Book tickets for an event
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/BookingRequest" }
+      responses:
+        "200":
+          description: Booking confirmed
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Booking" }
+
+  /v1/bookings/{id}/status:
+    get:
+      summary: Get booking status
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Booking status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string }
+
+  /v1/bookings/{id}/cancel:
+    post:
+      summary: Cancel booking
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Cancelled
+
+  /v1/bookings/user-bookings:
+    get:
+      summary: List bookings for logged-in user
+      security: [ { bearerAuth: [] } ]
+      parameters:
+        - in: path
+          name: user_id
+          required: true
+          schema: { type: string }
+        - in: query
+          name: limit
+          schema: { type: integer, default: 50 }
+        - in: query
+          name: offset
+          schema: { type: integer, default: 0 }
+      responses:
+        "200":
+          description: User bookings
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  bookings:
+                    type: array
+                    items: { $ref: "#/components/schemas/Booking" }
+
+  ####################################
+  # Auth
+  ####################################
+  /v1/auth/signup:
+    post:
+      summary: Sign up a new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SignupRequest" }
+      responses:
+        "201":
+          description: User created
+
+  /v1/auth/login:
+    post:
+      summary: Log in a user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LoginRequest" }
+      responses:
+        "200":
+          description: Auth token
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LoginResponse" }
+
+  /v1/auth/logout:
+    post:
+      summary: Logout user
+      responses:
+        "200": { description: Success }
+
+  /v1/auth/profile:
+    get:
+      summary: Get user profile
+      security: [ { bearerAuth: [] } ]
+      responses:
+        "200":
+          description: User profile
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
+    put:
+      summary: Update user profile
+      security: [ { bearerAuth: [] } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                phone: { type: string }
+      responses:
+        "200": { description: Profile updated }
+
+  /v1/auth/password:
+    put:
+      summary: Change password
+      security: [ { bearerAuth: [] } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PasswordChangeRequest" }
+      responses:
+        "200": { description: Password changed }
+
+  /v1/auth/password/request-otp:
+    post:
+      summary: Request OTP for password change
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/OTPRequest" }
+      responses:
+        "200": { description: OTP sent }
+
+  /v1/auth/password/verify-otp:
+    post:
+      summary: Verify OTP and set new password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/OTPVerifyRequest" }
+      responses:
+        "200": { description: Password changed }
+
+  ####################################
+  # Admin
+  ####################################
+  /admin/events:
+    post:
+      summary: Create new event
+      security: [ { bearerAuth: [] } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AdminEvent" }
+      responses:
+        "201": { description: Event created }
+
+  /admin/events/{id}:
+    put:
+      summary: Update event
+      security: [ { bearerAuth: [] } ]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: true }
+      responses:
+        "200": { description: Event updated }
+
+  /admin/events/{id}/cancel:
+    post:
+      summary: Cancel event
+      security: [ { bearerAuth: [] } ]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200": { description: Cancelled }
+
+  /admin/analytics:
+    get:
+      summary: Get analytics summary
+      security: [ { bearerAuth: [] } ]
+      parameters:
+        - in: query
+          name: from
+          schema: { type: string, format: date-time }
+        - in: query
+          name: to
+          schema: { type: string, format: date-time }
+      responses:
+        "200":
+          description: Analytics summary
+
+  /admin/users/{id}/admin:
+    post:
+      summary: Promote user to admin
+      security: [ { bearerAuth: [] } ]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200": { description: Promoted }
+    delete:
+      summary: Demote admin to user
+      security: [ { bearerAuth: [] } ]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200": { description: Demoted }
+
+    /admin/users/{id}:
+      delete:
+        summary: Remove user
+        security: [ { bearerAuth: [] } ]
+        parameters:
+          - in: path
+            name: id
+            required: true
+            schema: { type: string }
+        responses:
+          "200": { description: Removed }
+
+  /admin/users/get-user:
+    get:
+      summary: Get user by email
+      security: [ { bearerAuth: [] } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/Email" }
+      responses:
+        "200": { description: User }
+
+  ####################################
+  # Payment
+  ####################################
+  /v1/payment/booking:
+    get:
+      summary: Process booking payment
+      parameters:
+        - in: query
+          name: booking_id
+          schema: { type: string }
+        - in: query
+          name: amount
+          schema: { type: number }
+        - in: query
+          name: payment_id
+          schema: { type: string }
+      responses:
+        "200": { description: Payment successful }
+
+  /v1/payment/refund:
+    get:
+      summary: Process refund for a booking
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RefundRequest" }
+      responses:
+        "200": { description: Refund processed }
+
+  /v1/payment/events/{event_id}/refund:
+    post:
+      summary: Refund all bookings for cancelled event
+      security: [ { bearerAuth: [] } ]
+      parameters:
+        - in: path
+          name: event_id
+          required: true
+          schema: { type: string }
+      responses:
+        "200": { description: Refunds processed }
+
+  ####################################
+  # Waitlist
+  ####################################
+  /v1/waitlist/{event_id}/count:
+    get:
+      summary: Get waitlist count for event
+      parameters:
+        - in: path
+          name: event_id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Count
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  count: { type: integer }
+
+  /v1/waitlist/{event_id}:
+    get:
+      summary: List waitlist for event
+      parameters:
+        - in: path
+          name: event_id
+          required: true
+          schema: { type: string }
+        - in: query
+          name: limit
+          schema: { type: integer, default: 50 }
+        - in: query
+          name: offset
+          schema: { type: integer, default: 0 }
+      responses:
+        "200":
+          description: Waitlist entries
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  waitlist:
+                    type: array
+                    items: { $ref: "#/components/schemas/WaitlistEntry" }
+
+  /v1/waitlist/{event_id}/join:
+    post:
+      summary: Join waitlist
+      security: [ { bearerAuth: [] } ]
+      parameters:
+        - in: path
+          name: event_id
+          required: true
+          schema: { type: string }
+      responses:
+        "200": { description: Joined }
+
+  /v1/waitlist/{event_id}/optout:
+    post:
+      summary: Opt out from waitlist
+      security: [ { bearerAuth: [] } ]
+      parameters:
+        - in: path
+          name: event_id
+          required: true
+          schema: { type: string }
+      responses:
+        "200": { description: Opted out }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Event:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        description: { type: string }
+        start_time: { type: string, format: date-time }
+        end_time: { type: string, format: date-time }
+        location: { type: string }
+        available_seats: { type: integer }
+
+    BookingRequest:
+      type: object
+      properties:
+        seats:
+          type: array
+          items:
+            type: string
+      required: [ seats ]
+
+    Booking:
+      type: object
+      properties:
+        id: { type: string }
+        event_id: { type: string }
+        user_id: { type: string }
+        status: { type: string }
+        created_at: { type: string, format: date-time }
+
+    SignupRequest:
+      type: object
+      properties:
+        email: { type: string, format: email }
+        password: { type: string }
+        name: { type: string }
+        phone: { type: string}
+      required: [ email, name, password ]
+
+    LoginRequest:
+      type: object
+      properties:
+        email: { type: string, format: email }
+        password: { type: string }
+      required: [ email, password ]
+
+    LoginResponse:
+      type: object
+      properties:
+        token: { type: string }
+        user: { $ref: "#/components/schemas/User" }
+        expires: { type: string, format: date-time }
+
+    User:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        email: { type: string, format: email }
+        phone: { type: string }
+
+    PasswordChangeRequest:
+      type: object
+      properties:
+        current_password: { type: string }
+        new_password: { type: string }
+      required: [ current_password, new_password ]
+
+    OTPRequest:
+      type: object
+      properties:
+        email: { type: string, format: email }
+      required: [ email ]
+
+    OTPVerifyRequest:
+      type: object
+      properties:
+        email: { type: string, format: email }
+        otp: { type: string }
+        new_password: { type: string }
+      required: [ email, otp, new_password ]
+
+    AdminEvent:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Name of the event
+        venue:
+          type: string
+          description: Venue/location of the event
+        category:
+          type: string
+          description: Category of the event (e.g., music, sports, tech)
+        start_time:
+          type: string
+          format: date-time
+          description: Start time of the event
+        end_time:
+          type: string
+          format: date-time
+          description: End time of the event
+        capacity:
+          type: integer
+          description: Maximum number of attendees
+        metadata:
+          type: string
+          format: byte
+          description: Arbitrary metadata in binary (JSON or encoded data)
+        ticket_price:
+          type: number
+          format: float
+          description: Ticket price per attendee
+        cancellation_fee:
+          type: number
+          format: float
+          description: Fee applied if booking is cancelled
+        maximum_tickets_per_booking:
+          type: integer
+          description: Maximum number of tickets per single booking
+        seats:
+          type: array
+          items:
+            type: string
+          description: List of seat identifiers, must match capacity
+      required:
+        - name
+        - venue
+        - start_time
+        - end_time
+        - capacity
+        - seats
+
+    RefundRequest:
+      type: object
+      properties:
+        booking_id: { type: string }
+        reason: { type: string }
+      required: [ booking_id ]
+
+    WaitlistEntry:
+      type: object
+      properties:
+        id:
+          type: string
+        event_id:
+          type: string
+        user_id:
+          type: string
+        joined_at:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [waiting, notified, confirmed, opted_out]
+    Email:
+      type: object
+      properties:
+        email: { type: string, format: email }
+      required: [ email ]
+
+
+   
