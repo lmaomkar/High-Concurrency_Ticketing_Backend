@@ -1,0 +1,147 @@
+services:
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: evently
+      POSTGRES_PASSWORD: evently
+      POSTGRES_DB: evently
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U evently"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  redpanda:
+    image: docker.redpanda.com/redpandadata/redpanda:v23.3.13
+    command:
+      - redpanda start --overprovisioned --smp 1 --memory 1G --reserve-memory 0M --node-id 0 --kafka-addr PLAINTEXT://0.0.0.0:9092 --advertise-kafka-addr PLAINTEXT://redpanda:9092 --pandaproxy-addr 0.0.0.0:8082 --advertise-pandaproxy-addr redpanda:8082
+    ports:
+      - "9092:9092"
+      - "8082:8082"
+
+  prometheus:
+    image: prom/prometheus:v2.53.0
+    volumes:
+      - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "9090:9090"
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=15d"   # keep 15 days of data (tweak as needed)
+      - "--web.enable-lifecycle"              # allows hot reload via POST /-/reload
+
+
+  grafana:
+    image: grafana/grafana:10.4.2
+    volumes:
+      - ./infra/grafana/dashboards:/var/lib/grafana/dashboards
+      - ./infra/grafana/provisioning:/etc/grafana/provisioning
+    ports:
+      - "3000:3000"
+
+  migrate:
+    image: migrate/migrate:v4.17.0
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./cmd/migrate/migrations:/migrations:ro
+    entrypoint: ["/usr/bin/migrate", "-path", "/migrations", "-database", "postgres://evently:evently@postgres:5432/evently?sslmode=disable", "up"]
+    restart: "on-failure"
+
+  server:
+    build: .
+    depends_on:
+      - postgres
+      - redis
+      - redpanda
+      - migrate
+    environment:
+      APP_ENV: development
+      HTTP_PORT: 8080
+      POSTGRES_URL: postgres://evently:evently@postgres:5432/evently?sslmode=disable
+      REDIS_ADDR: redis:6379
+      KAFKA_BROKERS: redpanda:9092
+      JWT_SECRET: dev-secret
+      SMTP_HOST: smtp.gmail.com
+      SMTP_PORT: 587
+      SMTP_FROM : samir.wankhede04@gmail.com
+      SMTP_USER: samir.wankhede04@gmail.com
+      # passed removed pass
+      SMTP_PASS: sopfvqalwwxokbky 
+      ADMIN_EMAIL: admin@evently.com
+      ADMIN_PASSWORD: admin
+      MAX_WORKERS: 10
+      MAX_DB_CONNECTION: 20
+    ports:
+      - "8080:8080"
+
+  worker:
+    build: .
+    entrypoint: ["/worker"]
+    depends_on:
+      - postgres
+      - redis
+      - redpanda
+      - migrate
+    environment:
+      APP_ENV: development
+      POSTGRES_URL: postgres://evently:evently@postgres:5432/evently?sslmode=disable
+      REDIS_ADDR: redis:6379
+      KAFKA_BROKERS: redpanda:9092
+      JWT_SECRET: dev-secret
+      MAX_WORKERS: 10
+      MAX_DB_CONNECTION: 20
+      SMTP_HOST: smtp.gmail.com
+      SMTP_PORT: 587
+      SMTP_FROM : samir.wankhede04@gmail.com
+      SMTP_USER: samir.wankhede04@gmail.com
+      # passed removed pass
+      SMTP_PASS: sopfvqalwwxokbky
+
+  reconciler:
+    build: .
+    entrypoint: ["/reconcile"]
+    depends_on:
+      - postgres
+      - redis
+      - redpanda
+      - migrate
+    environment:
+      APP_ENV: development
+      POSTGRES_URL: postgres://evently:evently@postgres:5432/evently?sslmode=disable
+      REDIS_ADDR: redis:6379
+      KAFKA_BROKERS: redpanda:9092
+      JWT_SECRET: dev-secret
+
+  event-status-checker:
+    build: .
+    entrypoint: ["/event-status-checker"]
+    depends_on:
+      - postgres
+      - redis
+      - redpanda
+      - migrate
+    environment:
+      APP_ENV: development
+      POSTGRES_URL: postgres://evently:evently@postgres:5432/evently?sslmode=disable
+      REDIS_ADDR: redis:6379
+      KAFKA_BROKERS: redpanda:9092
+      JWT_SECRET: dev-secret
+
+volumes:
+  pgdata:
+  prometheus-data:
+
+
